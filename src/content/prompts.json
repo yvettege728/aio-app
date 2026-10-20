@@ -1,0 +1,11 @@
+[
+  {"id":"p01","finding":"F1","prompt":"Start small.\nThink of one moment this week when you felt most like yourself.\nWhere were you? What were your hands doing?","followUp":"Stay there a little longer. What could you hear?"},
+  {"id":"p02","finding":"F2","prompt":"People will tell you who you are.\nSome of them are wrong, and it can take years to see it.\nWas there a time someone decided who you were?\nWhat happened after?","followUp":"You don't need to know how it ends. Where are you in it now?"},
+  {"id":"p03","finding":"F6","prompt":"Write down three things from yesterday.\nLeave them as they are.\nYou don't have to choose the best one.","followUp":"Which one would you have forgotten by next week?"},
+  {"id":"p04","finding":"F2","prompt":"Some of what I am proudest of, nobody ever saw.\nIs there something like that for you?\nSomething you did well, and kept to yourself.","followUp":"Who would have understood it, if they had been there?"},
+  {"id":"p05","finding":"F2","prompt":"You don't need an ending yet.\nWhich part of your life are you still in the middle of?","followUp":"What does an ordinary day in the middle look like?"},
+  {"id":"p06","finding":"F2 F3","prompt":"The good things often take their time.\nWhat took you longer than you expected,\nand was still worth it?","followUp":"What kept you going, on the slow days?"},
+  {"id":"p07","finding":"F6 F5","prompt":"An ordinary day holds more than we give it credit for.\nTell me about one from this month.\nYou don't have to find the good part.","followUp":"What did you eat that day?"},
+  {"id":"p08","finding":"F1 F5","prompt":"Imagine someone far away who misses you.\nThey only want to know you are alright.\nWhat small things from today would you tell them?","followUp":"What time did you wake up? What did you have first?"},
+  {"id":"p09","finding":"F1","prompt":"Do you remember the first thing you bought\nwith money you earned yourself?\nTell me about it, even if it was a little silly.","followUp":"Do you still have it? Where did it end up?"}
+]
