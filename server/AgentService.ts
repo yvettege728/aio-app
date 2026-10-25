@@ -103,6 +103,16 @@ export class AgentService {
     this.store.delete(id);
   }
 
+  candidateLines(id: string): string[] {
+    const session = this.requireSession(id);
+    if (session.stage !== 'findLine') {
+      throw new Error('Session is not ready for line selection.');
+    }
+    return extractCandidateLines(
+      session.turns.filter((turn) => turn.role === 'user').map((turn) => turn.text),
+    );
+  }
+
   private requireSession(id: string): AgentSession {
     const session = this.store.get(id);
     if (!session) {
