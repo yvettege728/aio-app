@@ -6,8 +6,8 @@ test('phone machine follows the designed path', () => {
   let state = phoneTransition('arrive', { type: 'HOLD_COMPLETE' });
   state = phoneTransition(state, { type: 'SKIP_NAME' });
   state = phoneTransition(state, { type: 'PROMPT_READY' });
-  state = phoneTransition(state, { type: 'TEXT_BLURRED', text: 'I was there.' });
-  state = phoneTransition(state, { type: 'FOLLOW_UP_DONE' });
+  state = phoneTransition(state, { type: 'SUBMIT' });
+  state = phoneTransition(state, { type: 'CANDIDATES' });
   state = phoneTransition(state, { type: 'LINE_SELECTED' });
   state = phoneTransition(state, { type: 'KEEP_COMPLETE' });
   expect(state).toBe('card');
@@ -20,7 +20,7 @@ test('phone safety stop interrupts writing', () => {
 
 test('phone can skip an unanswered prompt without losing writing', () => {
   expect(phoneTransition('writing', { type: 'NEXT_PROMPT' })).toBe('prompt');
-  expect(phoneTransition('followUp', { type: 'NEXT_PROMPT' })).toBe('followUp');
+  expect(phoneTransition('waiting', { type: 'NEXT_PROMPT' })).toBe('waiting');
 });
 
 test('prompt selection varies and never repeats the current prompt when alternatives exist', () => {
@@ -61,6 +61,6 @@ test('paper mode can navigate back without closing the session', () => {
 
 test('phone mode supports contextual back navigation', () => {
   expect(phoneTransition('outsideName', { type: 'BACK' })).toBe('arrive');
-  expect(phoneTransition('followUp', { type: 'BACK' })).toBe('writing');
+  expect(phoneTransition('waiting', { type: 'BACK' })).toBe('writing');
   expect(phoneTransition('chooseLine', { type: 'BACK' })).toBe('writing');
 });

@@ -1,7 +1,8 @@
-export type PhoneState = 'arrive' | 'outsideName' | 'prompt' | 'writing' | 'followUp' | 'chooseLine' | 'holdToKeep' | 'card' | 'safetyStop';
+export type PhoneState = 'arrive' | 'outsideName' | 'prompt' | 'writing' | 'waiting' | 'followUp' | 'chooseLine' | 'holdToKeep' | 'card' | 'safetyStop';
 export type PhoneEvent =
   | { type: 'HOLD_COMPLETE' } | { type: 'SKIP_NAME' } | { type: 'NAME_SAVED' } | { type: 'PROMPT_READY' }
-  | { type: 'NEXT_PROMPT' } | { type: 'TEXT_BLURRED'; text: string } | { type: 'FOLLOW_UP_DONE' }
+  | { type: 'NEXT_PROMPT' } | { type: 'TEXT_BLURRED'; text: string } | { type: 'SUBMIT' }
+  | { type: 'FOLLOW_UP' } | { type: 'CANDIDATES' } | { type: 'FAIL' } | { type: 'FOLLOW_UP_DONE' }
   | { type: 'LINE_SELECTED' } | { type: 'KEEP_COMPLETE' } | { type: 'BACK' } | { type: 'CLOSE' } | { type: 'SAFETY_STOP' };
 
 export function phoneTransition(state: PhoneState, event: PhoneEvent): PhoneState {
@@ -13,7 +14,12 @@ export function phoneTransition(state: PhoneState, event: PhoneEvent): PhoneStat
       if (event.type === 'SAFETY_STOP') return 'safetyStop';
       if (event.type === 'NEXT_PROMPT') return 'prompt';
       if (event.type === 'BACK') return 'outsideName';
-      return event.type === 'TEXT_BLURRED' && event.text.trim() ? 'followUp' : state;
+      return event.type === 'SUBMIT' ? 'waiting' : state;
+    case 'waiting':
+      if (event.type === 'SAFETY_STOP') return 'safetyStop';
+      if (event.type === 'CANDIDATES') return 'chooseLine';
+      if (event.type === 'FOLLOW_UP' || event.type === 'FAIL' || event.type === 'BACK') return 'writing';
+      return state;
     case 'followUp': return event.type === 'FOLLOW_UP_DONE' ? 'chooseLine' : event.type === 'BACK' ? 'writing' : state;
     case 'chooseLine': return event.type === 'LINE_SELECTED' ? 'holdToKeep' : event.type === 'BACK' ? 'writing' : state;
     case 'holdToKeep': return event.type === 'KEEP_COMPLETE' ? 'card' : event.type === 'BACK' ? 'chooseLine' : state;
