@@ -1,5 +1,28 @@
 # aio demo recording guide
 
+## Two-entry agent story
+
+The strongest demo is one persona appearing through two independent doors. Do not present the sessions as synced and do not reuse private text between channels.
+
+### Scene A: App phone agent
+
+1. Choose `on the phone`, select English or 中文, and pause long enough for the privacy note to be readable.
+2. Hold to begin. Set aside the outside name without turning it into a profile field.
+3. In the main writing box, speak one short sensory memory. Show the live transcript replacing its own interim segment rather than duplicating words.
+4. Tap `next` explicitly. Let aio ask one concrete follow-up, answer twice more, and choose an exact line from the candidate list.
+5. Hold to keep it. End on the card without showing a dashboard, score, streak, or personality label.
+
+The visible contrast matters: raw voice is handled on the device, while the resulting text is sent to the online aio service only after the user taps `next`.
+
+### Scene B: Telegram agent
+
+1. Start a separate Telegram conversation with `/start`.
+2. Answer the opening question in a different memory from the App scene.
+3. Continue until the bot offers candidate lines. Select one inline button, then start again and demonstrate `/stop`.
+4. Keep the tone consistent with the App: warm, observant, reserved, and limited to one question.
+
+This is a real Telegram adapter with long polling when a user-owned bot token is configured. Live delivery must be tested before a recording claims it is operational. iMessage, OpenClaw, and WeChat are not implemented in this prototype; they illustrate the adapter direction only.
+
 ## Suggested scenes
 
 Use the existing local prompt IDs below. The prompt wording stays unchanged.
