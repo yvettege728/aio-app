@@ -22,7 +22,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow aio to listen while you choose to speak.",
+          "speechRecognitionPermission": "Allow aio to turn your speech into editable text on this device."
+        }
+      ]
     ]
   }
 }
