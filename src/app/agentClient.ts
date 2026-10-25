@@ -89,3 +89,7 @@ export class AgentClient {
     }
   }
 }
+
+export function createAgentClient(): AgentClient {
+  return new AgentClient();
+}

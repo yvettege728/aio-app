@@ -6,6 +6,7 @@ export type PhoneEvent =
   | { type: 'LINE_SELECTED' } | { type: 'KEEP_COMPLETE' } | { type: 'BACK' } | { type: 'CLOSE' } | { type: 'SAFETY_STOP' };
 
 export function phoneTransition(state: PhoneState, event: PhoneEvent): PhoneState {
+  if (event.type === 'CLOSE') return 'arrive';
   switch (state) {
     case 'arrive': return event.type === 'HOLD_COMPLETE' ? 'outsideName' : state;
     case 'outsideName': return event.type === 'SKIP_NAME' || event.type === 'NAME_SAVED' ? 'prompt' : event.type === 'BACK' ? 'arrive' : state;
@@ -23,8 +24,8 @@ export function phoneTransition(state: PhoneState, event: PhoneEvent): PhoneStat
     case 'followUp': return event.type === 'FOLLOW_UP_DONE' ? 'chooseLine' : event.type === 'BACK' ? 'writing' : state;
     case 'chooseLine': return event.type === 'LINE_SELECTED' ? 'holdToKeep' : event.type === 'BACK' ? 'writing' : state;
     case 'holdToKeep': return event.type === 'KEEP_COMPLETE' ? 'card' : event.type === 'BACK' ? 'chooseLine' : state;
-    case 'card': return event.type === 'CLOSE' ? 'arrive' : state;
-    case 'safetyStop': return event.type === 'CLOSE' ? 'arrive' : state;
+    case 'card': return state;
+    case 'safetyStop': return state;
     default: return state;
   }
 }

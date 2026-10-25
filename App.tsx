@@ -45,16 +45,13 @@ import { detectBackTap, MotionSample } from "./src/sensors/backTap";
 import { palettes, PaletteName } from "./src/theme/palettes";
 import { tokens } from "./src/motion/tokens";
 import { captureRef } from "react-native-view-shot";
+import { createAgentClient } from "./src/app/agentClient";
+import { VoiceInputBar } from "./src/components/VoiceInputBar";
+import type { Locale } from "./src/agent/types";
+import type { Selection } from "./src/speech/transcriptEdit";
 
 type Prompt = (typeof prompts)[number];
 const WRITING_ACCESSORY_ID = "aio-writing-accessory";
-
-function splitSentences(text: string): string[] {
-  return text
-    .split(/(?<=[.!?])\s+|\n+/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
 
 function HoldControl({
   label,
@@ -150,6 +147,7 @@ export default function App() {
   const [mode, setMode] = useState<"choose" | "phone" | "paper">("choose");
   const [promptIndex, setPromptIndex] = useState<number | null>(null);
   const [writing, setWriting] = useState("");
+  const [writingSelection, setWritingSelection] = useState<Selection>({ start: 0, end: 0 });
   const [line, setLine] = useState("");
   const [outsideName, setOutsideName] = useState("");
   const [style, setStyle] = useState<"handwriting" | "type">("type");
@@ -159,6 +157,14 @@ export default function App() {
   const [cameraReady, setCameraReady] = useState(false);
   const [torch, setTorch] = useState(false);
   const [musicEnabled, setMusicEnabled] = useState(true);
+  const [voiceListening, setVoiceListening] = useState(false);
+  const [agentLocale, setAgentLocale] = useState<Locale>("en");
+  const [agentSessionId, setAgentSessionId] = useState<string | null>(null);
+  const [agentMessage, setAgentMessage] = useState("");
+  const [agentCandidates, setAgentCandidates] = useState<string[]>([]);
+  const [agentError, setAgentError] = useState<string | null>(null);
+  const [agentBusy, setAgentBusy] = useState(false);
+  const agentClient = useRef(createAgentClient()).current;
   const paperSamplesRef = useRef<Acceleration[]>([]);
   const tapSamplesRef = useRef<MotionSample[]>([]);
   const [followUpRequested, setFollowUpRequested] = useState(false);
@@ -184,11 +190,14 @@ export default function App() {
   }, [ambiencePlayer]);
   useEffect(() => {
     const inSilentWriting = mode === "paper" && (paperState === "writing" || paperState === "followUp");
-    if (!musicEnabled || inSilentWriting) {
+    if (!musicEnabled || inSilentWriting || voiceListening) {
       if (ambiencePlayer.playing) ambiencePlayer.pause();
     } else if (!ambiencePlayer.playing) ambiencePlayer.play();
-  }, [ambiencePlayer, musicEnabled, mode, paperState]);
+  }, [ambiencePlayer, musicEnabled, mode, paperState, voiceListening]);
   useEffect(() => () => ambiencePlayer.pause(), [ambiencePlayer]);
+  useEffect(() => () => {
+    if (agentSessionId) void agentClient.stop(agentSessionId).catch(() => undefined);
+  }, [agentClient, agentSessionId]);
   useEffect(() => {
     if (mode !== "paper") return;
     activateKeepAwakeAsync().catch(() => undefined);
@@ -292,6 +301,29 @@ export default function App() {
     setPromptIndex(nextPromptIndex(null, prompts.length));
     setFollowUpRequested(false);
   };
+  const beginPhoneSession = async () => {
+    setAgentBusy(true);
+    setAgentError(null);
+    try {
+      const started = await agentClient.start(agentLocale);
+      setAgentSessionId(started.sessionId);
+      setAgentMessage(started.message);
+      setAgentCandidates([]);
+      dispatchPhone({ type: "HOLD_COMPLETE" });
+    } catch {
+      setAgentError(agentLocale === "zh" ? "aio 暂时没有回应。你的文字尚未发送。" : "aio is quiet right now. Nothing has been sent.");
+    } finally {
+      setAgentBusy(false);
+    }
+  };
+  const clearAgent = () => {
+    setAgentSessionId(null);
+    setAgentMessage("");
+    setAgentCandidates([]);
+    setAgentError(null);
+    setAgentBusy(false);
+    setVoiceListening(false);
+  };
   const closeCard = () => {
     setMode("choose");
     dispatchPhone({ type: "CLOSE" });
@@ -304,11 +336,58 @@ export default function App() {
     setStyle("type");
     setCameraActive(false);
     setCameraReady(false);
+    clearAgent();
     awaitingFirstFaceDownRef.current = false;
   };
-  const blurWriting = () => {
-    if (containsSafetyConcern(writing)) dispatchPhone({ type: "SAFETY_STOP" });
-    else dispatchPhone({ type: "TEXT_BLURRED", text: writing });
+  const submitWriting = async () => {
+    if (!writing.trim() || !agentSessionId || agentBusy) return;
+    if (containsSafetyConcern(writing)) {
+      void agentClient.stop(agentSessionId).catch(() => undefined);
+      setAgentSessionId(null);
+      setAgentMessage(agentLocale === "zh"
+        ? "这次写作采访需要先停在这里。如果你可能正处于危险中，请现在联系你信任的人或当地紧急支持。"
+        : "I need to pause this writing interview. Please contact someone you trust or local emergency support now if you may be in immediate danger.");
+      dispatchPhone({ type: "SAFETY_STOP" });
+      return;
+    }
+    dispatchPhone({ type: "SUBMIT" });
+    setAgentBusy(true);
+    setAgentError(null);
+    Keyboard.dismiss();
+    try {
+      const reply = await agentClient.reply(agentSessionId, writing);
+      setAgentMessage(reply.message);
+      if (reply.stage === "safetyStop") {
+        setAgentSessionId(null);
+        dispatchPhone({ type: "SAFETY_STOP" });
+      } else if (reply.stage === "findLine") {
+        setAgentCandidates(reply.candidateLines);
+        dispatchPhone({ type: "CANDIDATES" });
+      } else {
+        setWriting("");
+        setWritingSelection({ start: 0, end: 0 });
+        dispatchPhone({ type: "FOLLOW_UP" });
+      }
+    } catch {
+      setAgentError(agentLocale === "zh" ? "没有送达。文字还在这里，可以再试一次。" : "It did not arrive. Your words are still here; you can try again.");
+      dispatchPhone({ type: "FAIL" });
+    } finally {
+      setAgentBusy(false);
+    }
+  };
+  const keepPhoneLine = async () => {
+    if (!agentSessionId || !line || agentBusy) return;
+    setAgentBusy(true);
+    setAgentError(null);
+    try {
+      await agentClient.keep(agentSessionId, line);
+      setAgentSessionId(null);
+      dispatchPhone({ type: "KEEP_COMPLETE" });
+    } catch {
+      setAgentError(agentLocale === "zh" ? "这句话暂时无法留下，请再试一次。" : "This line could not be kept yet. Please try again.");
+    } finally {
+      setAgentBusy(false);
+    }
   };
   const beginPaperReading = async () => {
     paperSamplesRef.current = [];
@@ -331,9 +410,8 @@ export default function App() {
     if (mode === "phone") {
       if (phoneState === "outsideName") dispatchPhone({ type: "SKIP_NAME" });
       else if (phoneState === "writing" && writing.trim()) {
-        writingInputRef.current?.blur();
-        Keyboard.dismiss();
-      } else if (phoneState === "followUp") dispatchPhone({ type: "FOLLOW_UP_DONE" });
+        void submitWriting();
+      }
     }
     if (mode === "paper") {
       if (paperState === "instructions") void beginPaperReading();
@@ -349,17 +427,16 @@ export default function App() {
     }
   };
   const canGoBack = mode === "phone"
-    ? ["outsideName", "prompt", "writing", "followUp", "chooseLine", "holdToKeep"].includes(phoneState)
+    ? ["outsideName", "prompt", "writing", "chooseLine", "holdToKeep"].includes(phoneState) && !agentBusy
       : mode === "paper" && ["instructions", "reading", "paused", "organize", "capture", "chooseStyle", "holdToKeep"].includes(paperState);
   const canGoForward = mode === "phone"
-    ? phoneState === "outsideName" || (phoneState === "writing" && Boolean(writing.trim())) || phoneState === "followUp"
+    ? phoneState === "outsideName" || (phoneState === "writing" && Boolean(writing.trim()) && !agentBusy)
     : mode === "paper" && ["instructions", "reading", "paused", "organize", "capture"].includes(paperState) || (mode === "paper" && paperState === "chooseStyle" && Boolean(line.trim()));
   const progressLabel = mode === "phone"
-    ? ({ arrive: "start", outsideName: "1 / 4", prompt: "2 / 4", writing: "2 / 4", followUp: "3 / 4", chooseLine: "4 / 4", holdToKeep: "4 / 4", safetyStop: "here" } as Partial<Record<PhoneState, string>>)[phoneState] ?? ""
+    ? ({ arrive: "start", outsideName: "1 / 4", prompt: "2 / 4", writing: "2 / 4", waiting: "2 / 4", chooseLine: "4 / 4", holdToKeep: "4 / 4", safetyStop: "here" } as Partial<Record<PhoneState, string>>)[phoneState] ?? ""
     : mode === "paper"
       ? ({ instructions: "start", reading: "1 / 4", writing: "2 / 4", followUp: "2 / 4", paused: "2 / 4", organize: "3 / 4", capture: "3 / 4", chooseStyle: "4 / 4", holdToKeep: "4 / 4" } as Partial<Record<PaperState, string>>)[paperState] ?? ""
       : "";
-  const phoneLines = splitSentences(writing);
   const isPhone = mode === "phone";
   const isCard =
     (isPhone && phoneState === "card") ||
@@ -427,12 +504,31 @@ export default function App() {
               {phoneState === "arrive" && (
                 <View style={styles.centerStage}>
                   <Text style={styles.bigCircleText}>hold to begin</Text>
+                  <View accessibilityRole="radiogroup" style={styles.agentLanguages}>
+                    {(["en", "zh"] as const).map((locale) => (
+                      <Pressable
+                        key={locale}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: agentLocale === locale, disabled: agentBusy }}
+                        disabled={agentBusy}
+                        onPress={() => setAgentLocale(locale)}
+                        style={[styles.agentLanguage, agentLocale === locale && styles.agentLanguageSelected]}
+                      >
+                        <Text style={styles.agentLanguageText}>{locale === "en" ? "English" : "中文"}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Text style={styles.privacyNote}>
+                    Typed or transcribed words go to aio's online service. Raw voice stays on this device.
+                  </Text>
                   <HoldControl
                     label="hold"
                     color={palette.b}
-                    onComplete={() => dispatchPhone({ type: "HOLD_COMPLETE" })}
+                    onComplete={() => void beginPhoneSession()}
                     testID="arrive-hold"
                   />
+                  {agentBusy && <ActivityIndicator color={palette.text} />}
+                  {agentError && <Text style={styles.errorText}>{agentError}</Text>}
                 </View>
               )}
               {phoneState === "outsideName" && (
@@ -465,19 +561,26 @@ export default function App() {
               )}
               {(phoneState === "prompt" ||
                 phoneState === "writing" ||
-                phoneState === "followUp") && (
+                phoneState === "waiting") && (
                 <View style={styles.contentInner}>
-                  <Text style={styles.promptText}>{prompt.prompt}</Text>
+                  <Text style={styles.promptText}>{agentMessage}</Text>
                   {phoneState === "prompt" && (
                     <ActivityIndicator color={palette.text} />
                   )}
-                  {phoneState !== "prompt" && (
+                  {phoneState === "waiting" && (
+                    <View style={styles.agentWaiting}>
+                      <ActivityIndicator color={palette.text} />
+                      <Text style={styles.body}>aio is considering one next question.</Text>
+                    </View>
+                  )}
+                  {phoneState === "writing" && (
                     <>
                       <TextInput
                         ref={writingInputRef}
                         value={writing}
                         onChangeText={setWriting}
-                        onBlur={blurWriting}
+                        selection={writingSelection}
+                        onSelectionChange={(event) => setWritingSelection(event.nativeEvent.selection)}
                         multiline
                         textAlignVertical="top"
                         inputAccessoryViewID={WRITING_ACCESSORY_ID}
@@ -485,6 +588,15 @@ export default function App() {
                           styles.writingInput,
                           { borderColor: palette.text + "40" },
                         ]}
+                      />
+                      <VoiceInputBar
+                        value={writing}
+                        selection={writingSelection}
+                        locale={agentLocale}
+                        onLocaleChange={setAgentLocale}
+                        onChangeText={setWriting}
+                        onSelectionChange={setWritingSelection}
+                        onListeningChange={setVoiceListening}
                       />
                       <InputAccessoryView nativeID={WRITING_ACCESSORY_ID}>
                         <View style={styles.keyboardAccessory}>
@@ -506,29 +618,12 @@ export default function App() {
                       </InputAccessoryView>
                       {phoneState === "writing" && !writing.trim() && (
                         <Pressable
-                          onPress={() => {
-                            setPromptIndex(nextPromptIndex(promptIndex, prompts.length));
-                            dispatchPhone({ type: "NEXT_PROMPT" });
-                          }}
+                          onPress={closeCard}
                         >
-                          <Text style={styles.link}>not today</Text>
+                          <Text style={styles.link}>set this aside</Text>
                         </Pressable>
                       )}
-                      {phoneState === "followUp" && (
-                        <View style={styles.followUp}>
-                          <Text style={styles.followUpText}>
-                            {prompt.followUp}
-                          </Text>
-                          <Pressable
-                            style={styles.nextButton}
-                            onPress={() =>
-                              dispatchPhone({ type: "FOLLOW_UP_DONE" })
-                            }
-                          >
-                            <Text style={styles.buttonText}>I have a line</Text>
-                          </Pressable>
-                        </View>
-                      )}
+                      {agentError && <Text style={styles.errorText}>{agentError}</Text>}
                     </>
                   )}
                 </View>
@@ -538,7 +633,7 @@ export default function App() {
                   <Text style={styles.question}>
                     Is there a line here you would keep?
                   </Text>
-                  {phoneLines.map((sentence) => (
+                  {agentCandidates.map((sentence) => (
                     <Pressable
                       key={sentence}
                       onPress={() => {
@@ -557,24 +652,24 @@ export default function App() {
                   <Text style={styles.keepPrompt}>Keep it as it is.</Text>
                   <TextInput
                     value={line}
-                    onChangeText={setLine}
+                    editable={false}
                     multiline
                     style={styles.lineEdit}
                   />
                   <HoldControl
                     label="hold"
                     color={palette.b}
-                    onComplete={() => dispatchPhone({ type: "KEEP_COMPLETE" })}
+                    onComplete={() => void keepPhoneLine()}
                     testID="phone-keep"
                   />
+                  {agentBusy && <ActivityIndicator color={palette.text} />}
+                  {agentError && <Text style={styles.errorText}>{agentError}</Text>}
                 </View>
               )}
               {phoneState === "safetyStop" && (
                 <View style={styles.contentInner}>
                   <Text style={styles.question}>
-                    I'm really glad you told me. This matters more than anything
-                    we were writing. You don't have to carry this by yourself.
-                    Please reach out to someone who can be with you now.
+                    {agentMessage}
                   </Text>
                   <View style={styles.resourceBox}>
                     <Text style={styles.resourceText}>
@@ -943,6 +1038,13 @@ const styles = StyleSheet.create({
     fontSize: 28,
     marginBottom: 26,
   },
+  agentLanguages: { flexDirection: "row", gap: 8, marginBottom: 14 },
+  agentLanguage: { borderWidth: 1, borderColor: "#8B927F", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 7 },
+  agentLanguageSelected: { backgroundColor: "#E1E9E4", borderColor: "#3D473B" },
+  agentLanguageText: { fontFamily: "Gaegu_400Regular", fontSize: 19, color: "#3D473B" },
+  privacyNote: { maxWidth: 300, textAlign: "center", fontFamily: "Gaegu_400Regular", fontSize: 17, lineHeight: 22, color: "#66665D", opacity: 0.82 },
+  agentWaiting: { minHeight: 150, alignItems: "center", justifyContent: "center", gap: 14 },
+  errorText: { fontFamily: "Gaegu_400Regular", fontSize: 18, lineHeight: 23, color: "#8B4654" },
   choiceStack: { width: "100%", gap: 14, marginTop: 34 },
   choice: {
     borderWidth: 1.5,
