@@ -4,6 +4,17 @@ export const palettes = {
   blush: { bg: '#F3EEE6', text: '#4A5144', a: '#E4D1C9', b: '#99936F' },
   aqua: { bg: '#EFF1EA', text: '#3F5148', a: '#E2D4CA', b: '#748B7A', c: '#A87370' },
   ivory: { bg: '#F7F4EC', text: '#66554B', a: '#E8D8CF', b: '#929478', c: '#E4E0D4', d: '#B47E78' },
+  rejection: {
+    sky: '#E6EFFA',
+    mist: '#F6DDE6',
+    white: '#FBFCFF',
+    blue: '#6C7FD8',
+    dot: '#9FD3EE',
+    mint: '#CFE8C9',
+    coral: '#E4625A',
+    rose: '#EE8FA6',
+    ink: '#6E5440',
+  },
 } as const;
 
-export type PaletteName = keyof typeof palettes;
+export type PaletteName = Exclude<keyof typeof palettes, 'rejection'>;
