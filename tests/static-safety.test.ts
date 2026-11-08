@@ -16,7 +16,7 @@ test('animation durations are centralized in tokens', () => {
 });
 
 test('phone writing uses explicit agent submission and voice only in the main box', () => {
-  const app = fs.readFileSync(path.join(__dirname, '..', 'App.tsx'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '..', 'LegacyApp.tsx'), 'utf8');
   expect(app).toContain('VoiceInputBar');
   expect(app).toContain('createAgentClient');
   expect(app).not.toContain('onBlur={blurWriting}');
