@@ -27,6 +27,7 @@ export type RejectionEvent =
   | { type: "QUIET_FINISHED" }
   | { type: "BODY_NEXT" }
   | { type: "UNDERSTAND_NEXT"; hasContent: boolean }
+  | { type: "HOLD_RELEASED" }
   | { type: "KEPT" }
   | { type: "CLOSE" }
   | { type: "OPEN_LIST" }
@@ -70,6 +71,7 @@ export function rejectionTransition(
       }
       return state;
     case "keep":
+      if (event.type === "HOLD_RELEASED") return state;
       return event.type === "KEPT" ? { ...state, step: "kept", releaseText: "" } : state;
     case "kept":
       return event.type === "CLOSE" ? initialRejectionState : state;

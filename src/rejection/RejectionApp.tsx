@@ -307,7 +307,7 @@ export function RejectionApp() {
               </>}
               {step === "keep" && <>
                 <Text style={styles.question}>[copy TBD: 收下]</Text>
-                <HoldControl label="[copy TBD: 长按收下]" color={palettes.rejection.dot} holdMs={tokens.rejection.holdMs} drainMs={tokens.rejection.drainMs} style={styles.keepCapsule} preserveHoldOnReducedMotion onComplete={() => { void Haptics.selectionAsync(); void keep(); }} />
+                <HoldControl label="[copy TBD: 长按收下]" color={palettes.rejection.dot} holdMs={tokens.rejection.holdMs} drainMs={tokens.rejection.drainMs} style={styles.keepCapsule} preserveHoldOnReducedMotion onCancel={() => dispatch({ type: "HOLD_RELEASED" })} onComplete={() => { void Haptics.selectionAsync(); void keep(); }} />
                 {storageError && <Text accessibilityLiveRegion="polite" style={styles.error}>[copy TBD: 保存失败，请重试]</Text>}
               </>}
               {step === "kept" && <>

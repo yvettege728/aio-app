@@ -47,6 +47,16 @@ describe("rejection state machine", () => {
     expect(rejectionTransition(release, { type: "TOO_SHORT" })).toEqual(release);
   });
 
+  test("letting go during the keep hold retains the reflection step", () => {
+    const keeping = { ...initialRejectionState, step: "keep" as const };
+    expect(rejectionTransition(keeping, { type: "HOLD_RELEASED" })).toEqual(keeping);
+  });
+
+  test("closing the kept view returns home", () => {
+    const kept = { ...initialRejectionState, step: "kept" as const };
+    expect(rejectionTransition(kept, { type: "CLOSE" })).toEqual(initialRejectionState);
+  });
+
   test("safety stop wins from every writing step and cannot be dismissed", () => {
     for (const step of ["release", "body", "understand"] as const) {
       const stopped = rejectionTransition({ ...initialRejectionState, step }, { type: "SAFETY_STOP" });

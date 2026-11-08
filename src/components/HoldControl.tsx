@@ -14,6 +14,7 @@ type Props = {
   label: string;
   color: string;
   onComplete: () => void;
+  onCancel?: () => void;
   testID?: string;
   holdMs?: number;
   drainMs?: number;
@@ -25,6 +26,7 @@ export function HoldControl({
   label,
   color,
   onComplete,
+  onCancel,
   testID,
   holdMs = tokens.keep.holdMs,
   drainMs = tokens.keep.drainMs,
@@ -57,6 +59,7 @@ export function HoldControl({
 
   const stop = () => {
     if (completeRef.current) return;
+    onCancel?.();
     progress.stopAnimation();
     Animated.timing(progress, {
       toValue: 0,
