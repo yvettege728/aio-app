@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import { windMotionTokens } from "./tokens";
+import { tokenizeWindWords } from "./words";
 
 type Phase = "idle" | "loosening" | "ready" | "wind";
 const INK = "#302c27";
@@ -32,19 +33,31 @@ function Letter({ value, index, phase, reducedMotion }: { value: string; index: 
 export function WindWords({ text, phase, reducedMotion, onComplete }: {
   text: string; phase: Phase; reducedMotion: boolean; onComplete: () => void;
 }) {
-  const visible = useMemo(() => Array.from(text).slice(0, 320), [text]);
+  const visible = useMemo(() => {
+    let used = 0;
+    return tokenizeWindWords(text).filter((word) => {
+      if (used >= 320) return false;
+      used += Array.from(word).length + 1;
+      return true;
+    });
+  }, [text]);
+  const visibleLetters = visible.reduce((count, word) => count + Array.from(word).length, 0);
   useEffect(() => {
     if (phase !== "wind") return;
-    const timer = setTimeout(onComplete, reducedMotion ? 400 : windMotionTokens.completeBaseMs + visible.length * windMotionTokens.letterDelayMs);
+    const timer = setTimeout(onComplete, reducedMotion ? 400 : windMotionTokens.completeBaseMs + visibleLetters * windMotionTokens.letterDelayMs);
     return () => clearTimeout(timer);
-  }, [onComplete, phase, reducedMotion, visible.length]);
+  }, [onComplete, phase, reducedMotion, visibleLetters]);
+  let letterIndex = 0;
   return <View style={styles.lines} accessibilityElementsHidden>
-    {visible.map((letter, index) => <Letter key={index} value={letter} index={index} phase={phase} reducedMotion={reducedMotion} />)}
-    {Array.from(text).length > visible.length && <Text style={styles.letter}>…</Text>}
+    {visible.map((word, wordIndex) => <View key={wordIndex} style={styles.word}>
+      {Array.from(word).map((letter, index) => <Letter key={index} value={letter} index={letterIndex++} phase={phase} reducedMotion={reducedMotion} />)}
+    </View>)}
+    {tokenizeWindWords(text).length > visible.length && <Text style={styles.letter}>…</Text>}
   </View>;
 }
 
 const styles = StyleSheet.create({
-  lines: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", paddingHorizontal: 8 },
-  letter: { color: INK, fontSize: 26, lineHeight: 39, fontWeight: "400" },
+  lines: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", paddingHorizontal: 12 },
+  word: { flexDirection: "row", marginRight: 8, marginBottom: 4 },
+  letter: { color: INK, fontSize: 21, lineHeight: 32, fontWeight: "400" },
 });
