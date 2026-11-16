@@ -23,6 +23,14 @@ describe("deliberate shake detector", () => {
     expect(detectShake(deliberate).shaking).toBe(true);
   });
 
+  test("recognizes a gentle but deliberate shake (about one g each way)", () => {
+    const gentle = samples([
+      [0, 0, 1], [1.0, 0, 1], [-0.9, 0, 1], [1.0, 0, 1],
+      [-1.0, 0, 1], [0.9, 0, 1], [-1.0, 0, 1], [1.0, 0, 1],
+    ]);
+    expect(detectShake(gentle).shaking).toBe(true);
+  });
+
   test.each([
     ["walking", samples([[0, 0, 1], [0.25, 0.1, 1.1], [-0.2, 0, 0.9], [0.28, -0.1, 1.05], [-0.22, 0, 1]])],
     ["picking up", samples([[0, 0, 1], [0.4, 0.3, 1.3], [0.9, 0.5, 1.5], [1.1, 0.7, 1.7]])],
