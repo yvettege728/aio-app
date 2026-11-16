@@ -7,16 +7,28 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "Allow aio to turn your speech into editable text on this device.",
+        "NSMicrophoneUsageDescription": "Allow aio to listen while you choose to speak.",
+        "CFBundleDisplayName": "aio"
+      },
+      "bundleIdentifier": "com.yvettege.aio-app"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#E6EFFA",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -28,6 +40,29 @@
         {
           "microphonePermission": "Allow aio to listen while you choose to speak.",
           "speechRecognitionPermission": "Allow aio to turn your speech into editable text on this device."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "enableSceneSupport": true
+          }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#E6EFFA"
+        }
+      ],
+      [
+        "./plugins/withFullBleedSplash",
+        {
+          "image": "./assets/splash-icon.png"
         }
       ]
     ]
