@@ -66,6 +66,7 @@ export function WindApp() {
       void Haptics.selectionAsync();
     } catch {
       setError("Could not save on this iPhone. Your words are still here. Try again.");
+      setMotion(initialWindMotion);
       setScreen("motion");
     } finally {
       savePending.current = false;
@@ -161,11 +162,11 @@ export function WindApp() {
         </View>
       </View>}
 
-      {(screen === "motion" || screen === "wind") && <View style={styles.ritual} accessible={screenReader} accessibilityLabel={screen === "wind" ? "Your words are drifting" : "Shake to loosen your words, then hold still"} accessibilityActions={screenReader ? [{ name: "release", label: "Release without shaking" }] : undefined} onAccessibilityAction={(event) => { if (event.nativeEvent.actionName === "release") void saveAndWind(); }}>
-        <Text style={styles.eyebrow}>{screen === "wind" ? "THE WIND" : motion.phase === "ready" ? "NOW HOLD STILL" : "SHAKE TO LOOSEN"}</Text>
-        <ScrollView contentContainerStyle={styles.wordSpace}><WindWords text={draft} phase={screen === "wind" ? "wind" : motion.phase} reducedMotion={reducedMotion} onComplete={() => setScreen("quiet")} /></ScrollView>
+      {(screen === "motion" || screen === "wind") && <View style={styles.ritual} accessible={screenReader} accessibilityLabel={screen === "wind" ? "Your words are drifting" : "Shake to let your words fall away, little by little"} accessibilityActions={screenReader ? [{ name: "release", label: "Release without shaking" }] : undefined} onAccessibilityAction={(event) => { if (event.nativeEvent.actionName === "release") void saveAndWind(); }}>
+        <Text style={styles.eyebrow}>{screen === "wind" ? "THE WIND" : motion.shed > 0 ? "LITTLE BY LITTLE" : "SHAKE TO LOOSEN"}</Text>
+        <ScrollView contentContainerStyle={styles.wordSpace}><WindWords text={draft} phase={screen === "wind" ? "wind" : motion.phase} shed={motion.shed} reducedMotion={reducedMotion} onComplete={() => setScreen("quiet")} /></ScrollView>
         {screen === "motion" && <View style={styles.ritualBottom}>
-          <Text style={styles.hint}>{motion.phase === "ready" ? "Keep holding your phone. Just stop moving; the wind will come." : "Shake a few times. The letters will loosen. Then hold still."}</Text>
+          <Text style={styles.hint}>{motion.shed > 0 ? "Keep shaking, or rest. What has fallen stays gone." : "Shake. A little falls away each time."}</Text>
           <Pressable accessibilityRole="button" disabled={saving} onPress={() => void saveAndWind()}><Text style={styles.smallLink}>{saving ? "saving…" : error ? "retry saving" : "release without shaking"}</Text></Pressable>
           <Pressable accessibilityRole="button" onPress={() => { setMotion(initialWindMotion); setScreen("write"); }}><Text style={styles.mutedLink}>back to writing</Text></Pressable>
         </View>}

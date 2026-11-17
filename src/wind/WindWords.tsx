@@ -4,35 +4,42 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTimi
 import { windMotionTokens } from "./tokens";
 import { tokenizeWindWords } from "./words";
 
-type Phase = "idle" | "loosening" | "ready" | "wind";
+type Phase = "idle" | "loosening" | "wind";
 import { brand } from "../brand/brand";
+import { isShed, shedOrder } from "./motion";
 const INK = brand.ink;
 
-function Letter({ value, index, phase, reducedMotion }: { value: string; index: number; phase: Phase; reducedMotion: boolean }) {
+// gone：这个字已经被甩掉（摇晃中一点点脱落，或最后的风）。脱落后不会回来。
+function Letter({ value, index, phase, gone, reducedMotion }: { value: string; index: number; phase: Phase; gone: boolean; reducedMotion: boolean }) {
   const progress = useSharedValue(0);
+  const wobble = useSharedValue(0);
   useEffect(() => {
-    if (phase === "wind") {
-      progress.value = withDelay(index * windMotionTokens.letterDelayMs, withTiming(1, { duration: reducedMotion ? windMotionTokens.fadeMs : windMotionTokens.driftMs, easing: Easing.out(Easing.cubic) }));
-    } else {
-      progress.value = withTiming(phase === "ready" ? 0.16 : phase === "loosening" ? 0.06 : 0, { duration: windMotionTokens.settleMs });
+    if (gone) {
+      const delay = phase === "wind" ? (index % 9) * windMotionTokens.letterDelayMs : 0;
+      progress.value = withDelay(delay, withTiming(1, { duration: reducedMotion ? windMotionTokens.fadeMs : windMotionTokens.driftMs, easing: Easing.out(Easing.cubic) }));
     }
-  }, [index, phase, progress, reducedMotion]);
+  }, [gone, index, phase, progress, reducedMotion]);
+  useEffect(() => {
+    if (!gone) wobble.value = withTiming(phase === "loosening" ? 1 : 0, { duration: windMotionTokens.settleMs });
+  }, [gone, phase, wobble]);
   const animated = useAnimatedStyle(() => {
     const direction = index % 3 === 0 ? -1 : 1;
+    const drift = progress.value;
+    const loose = wobble.value * 0.08;
     return {
-      opacity: phase === "wind" ? 1 - progress.value : 1,
+      opacity: 1 - drift,
       transform: reducedMotion ? [] : [
-        { translateX: progress.value * direction * (phase === "wind" ? 110 + index % 5 * 18 : 7) },
-        { translateY: progress.value * (phase === "wind" ? -55 - index % 7 * 17 : (index % 3 - 1) * 8) },
-        { rotate: `${progress.value * direction * (phase === "wind" ? 24 : 8)}deg` },
+        { translateX: drift * direction * (110 + index % 5 * 18) + loose * direction * 7 },
+        { translateY: drift * (-55 - index % 7 * 17) + loose * (index % 3 - 1) * 8 },
+        { rotate: `${drift * direction * 24 + loose * direction * 8}deg` },
       ],
     };
   });
   return <Animated.Text style={[styles.letter, animated]}>{value}</Animated.Text>;
 }
 
-export function WindWords({ text, phase, reducedMotion, onComplete }: {
-  text: string; phase: Phase; reducedMotion: boolean; onComplete: () => void;
+export function WindWords({ text, phase, shed, reducedMotion, onComplete }: {
+  text: string; phase: Phase; shed: number; reducedMotion: boolean; onComplete: () => void;
 }) {
   const visible = useMemo(() => {
     let used = 0;
@@ -43,15 +50,20 @@ export function WindWords({ text, phase, reducedMotion, onComplete }: {
     });
   }, [text]);
   const visibleLetters = visible.reduce((count, word) => count + Array.from(word).length, 0);
+  const ranks = useMemo(() => shedOrder(visibleLetters), [visibleLetters]);
   useEffect(() => {
     if (phase !== "wind") return;
-    const timer = setTimeout(onComplete, reducedMotion ? 400 : windMotionTokens.completeBaseMs + visibleLetters * windMotionTokens.letterDelayMs);
+    const timer = setTimeout(onComplete, reducedMotion ? 400 : windMotionTokens.completeBaseMs);
     return () => clearTimeout(timer);
-  }, [onComplete, phase, reducedMotion, visibleLetters]);
+  }, [onComplete, phase, reducedMotion]);
   let letterIndex = 0;
   return <View style={styles.lines} accessibilityElementsHidden>
     {visible.map((word, wordIndex) => <View key={wordIndex} style={styles.word}>
-      {Array.from(word).map((letter, index) => <Letter key={index} value={letter} index={letterIndex++} phase={phase} reducedMotion={reducedMotion} />)}
+      {Array.from(word).map((letter, index) => {
+        const i = letterIndex++;
+        const gone = phase === "wind" || isShed(ranks[i], visibleLetters, shed);
+        return <Letter key={index} value={letter} index={i} phase={phase} gone={gone} reducedMotion={reducedMotion} />;
+      })}
     </View>)}
     {tokenizeWindWords(text).length > visible.length && <Text style={styles.letter}>…</Text>}
   </View>;
