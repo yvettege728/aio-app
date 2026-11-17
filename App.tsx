@@ -15,7 +15,7 @@ export default function App() {
   const [splashDone, setSplashDone] = useState(false);
   const finishSplash = useCallback(() => setSplashDone(true), []);
   return (
-    <View style={{ flex: 1, backgroundColor: "#f4f1e9" }}>
+    <View style={{ flex: 1, backgroundColor: "#E6EFFA" }}>
       <StatusBar style="dark" />
       {loaded ? <WindApp /> : null}
       {splashDone ? null : <BrandSplash ready={loaded} onDone={finishSplash} />}

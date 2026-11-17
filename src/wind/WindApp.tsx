@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Alert, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { AccessibilityInfo, Alert, Image, ImageBackground, Keyboard, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Accelerometer } from "expo-sensors";
 import * as Haptics from "expo-haptics";
 import { useVoiceInput, type VoiceLocale } from "../speech/useVoiceInput";
@@ -8,11 +8,14 @@ import { advanceWindMotion, initialWindMotion, type WindMotion } from "./motion"
 import { WindWords } from "./WindWords";
 import { addWindEntry, deleteAllWindEntries, deleteWindEntry, readWindEntries, type WindEntry } from "./store";
 import { releaseIntent } from "./release";
+import { brand, ground, markLiquid, MARK_RATIO } from "../brand/brand";
 
-const PAPER = "#f4f1e9";
-const INK = "#302c27";
-const MUTED = "#766e64";
-const ACCENT = "#78846c";
+const INK = brand.ink;
+const MUTED = brand.muted;
+const ACCENT = brand.periwinkleText;
+const HAND = "Gaegu_400Regular";
+const HAND_BOLD = "Gaegu_700Bold";
+const Mark = ({ width }: { width: number }) => <Image source={markLiquid} style={{ width, height: width * MARK_RATIO }} accessibilityRole="image" accessibilityLabel="aio" />;
 type Screen = "write" | "motion" | "wind" | "quiet" | "archive" | "record" | "compare";
 
 export function WindApp() {
@@ -138,14 +141,13 @@ export function WindApp() {
   const currentEntry = entries.find((entry) => entry.id === opened);
   const comparison = selected.map((id) => entries.find((entry) => entry.id === id)).filter((item): item is WindEntry => !!item);
 
-  return <SafeAreaView style={styles.screen}>
+  return <ImageBackground source={ground} style={styles.screen} resizeMode="cover"><SafeAreaView style={styles.flex}>
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       {screen === "write" && <View style={styles.page}>
-        {!draft && !keyboardVisible && <Image source={require("./assets/fern-imprint.png")} style={styles.writeFern} accessibilityElementsHidden />}
-        <View style={styles.top}><Text style={styles.mark}>aio.</Text></View>
+        <View style={styles.top}><Mark width={104} /></View>
         <View style={[styles.editorWrap, keyboardVisible && styles.editorWrapKeyboard]}>
           <Text style={styles.editorLabel}>SAY IT, OR WRITE IT.</Text>
-          <TextInput multiline value={draft} onChangeText={setDraft} onSelectionChange={(event) => setSelection(event.nativeEvent.selection)} placeholder="What is here right now?" placeholderTextColor="#9b948a" style={[styles.editor, keyboardVisible && styles.editorKeyboard]} accessibilityLabel="Your words" textAlignVertical="top" />
+          <TextInput multiline value={draft} onChangeText={setDraft} onSelectionChange={(event) => setSelection(event.nativeEvent.selection)} placeholder="What is here right now?" placeholderTextColor="#9A8F88" style={[styles.editor, keyboardVisible && styles.editorKeyboard]} accessibilityLabel="Your words" textAlignVertical="top" />
         </View>
         <View style={styles.bottom}>
           <View style={styles.voiceRow}>
@@ -169,7 +171,7 @@ export function WindApp() {
         </View>}
       </View>}
 
-      {screen === "quiet" && <View style={styles.quiet}><Image source={require("./assets/fern-imprint.png")} style={styles.fern} accessibilityElementsHidden /><Text style={styles.mark}>aio.</Text></View>}
+      {screen === "quiet" && <View style={styles.quiet}><Mark width={220} /></View>}
 
       {screen === "archive" && <View style={styles.archive}>
         <View style={styles.top}><Pressable accessibilityRole="button" onPress={() => setScreen("write")}><Text style={styles.smallLink}>back</Text></Pressable><Text style={styles.smallTitle}>kept words</Text></View>
@@ -191,24 +193,23 @@ export function WindApp() {
       {screen === "compare" && <View style={styles.archive}><View style={styles.top}><Pressable accessibilityRole="button" onPress={() => setScreen("archive")}><Text style={styles.smallLink}>back</Text></Pressable><Text style={styles.smallTitle}>two moments</Text></View><ScrollView contentContainerStyle={styles.recordScroll}>{comparison.map((entry) => <View key={entry.id} style={styles.comparison}><Text style={styles.date}>{new Date(entry.createdAt).toLocaleDateString("en-US")}</Text><Text style={styles.fullText}>{entry.text}</Text></View>)}<Text style={styles.notice}>On-device interpretation is unavailable in this build. Your original words are here to read.</Text></ScrollView></View>}
       {!!error && screen !== "write" && <Text accessibilityLiveRegion="polite" style={styles.error}>{error}</Text>}
     </KeyboardAvoidingView>
-  </SafeAreaView>;
+  </SafeAreaView></ImageBackground>;
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 }, screen: { flex: 1, backgroundColor: PAPER }, page: { flex: 1, paddingHorizontal: 30, paddingTop: 16, paddingBottom: 22 },
-  writeFern: { position: "absolute", right: -58, top: 115, width: 170, height: 255, opacity: 0.7 },
+  flex: { flex: 1 }, screen: { flex: 1, backgroundColor: brand.sky }, page: { flex: 1, paddingHorizontal: 30, paddingTop: 16, paddingBottom: 22 },
   top: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", minHeight: 48 },
-  mark: { color: INK, fontFamily: "Gaegu_700Bold", fontSize: 42 }, smallTitle: { color: INK, fontFamily: "Gaegu_700Bold", fontSize: 26 },
+  smallTitle: { color: brand.periwinkle, fontFamily: HAND_BOLD, fontSize: 28 },
   smallLink: { color: INK, fontSize: 14, paddingVertical: 8 }, mutedLink: { color: MUTED, fontSize: 13, paddingVertical: 8 },
   editorWrap: { flex: 1, justifyContent: "flex-start", paddingTop: 88 }, editorWrapKeyboard: { paddingTop: 24 },
   editorLabel: { color: ACCENT, fontSize: 11, letterSpacing: 2.2, fontWeight: "600" },
   eyebrow: { color: ACCENT, fontSize: 11, letterSpacing: 2.2, fontWeight: "600", textAlign: "center" },
-  editor: { color: INK, fontSize: 21, lineHeight: 32, minHeight: 190, maxHeight: 300, marginTop: 22, padding: 0 }, editorKeyboard: { minHeight: 120, maxHeight: 180, marginTop: 12 },
+  editor: { color: INK, fontFamily: HAND, fontSize: 25, lineHeight: 34, minHeight: 190, maxHeight: 300, marginTop: 22, padding: 0 }, editorKeyboard: { minHeight: 120, maxHeight: 180, marginTop: 12 },
   bottom: { gap: 12 }, voiceRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingBottom: 9 }, voiceLink: { color: INK, fontSize: 14, letterSpacing: 0.5, paddingVertical: 8 }, languageLink: { color: MUTED, fontSize: 12, letterSpacing: 1.2, paddingVertical: 8 },
-  primary: { flexDirection: "row", borderTopWidth: 1, borderBottomWidth: 1, borderColor: INK, minHeight: 65, justifyContent: "space-between", alignItems: "center" }, primaryText: { color: INK, fontFamily: "Georgia", fontStyle: "italic", fontSize: 23 }, arrow: { color: INK, fontSize: 24 },
+  primary: { flexDirection: "row", borderWidth: 1.5, borderColor: brand.periwinkle, borderRadius: 999, backgroundColor: "rgba(251,252,255,0.6)", minHeight: 62, paddingHorizontal: 26, justifyContent: "space-between", alignItems: "center", shadowColor: brand.periwinkle, shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 6 } }, primaryText: { color: brand.periwinkle, fontFamily: HAND_BOLD, fontSize: 27 }, arrow: { color: brand.periwinkle, fontSize: 22 },
   bottomMeta: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 16, paddingTop: 3 },
   disclosure: { flex: 1, color: MUTED, fontSize: 11, lineHeight: 16 }, archiveLink: { color: MUTED, fontSize: 12, textDecorationLine: "underline" },
-  notice: { color: MUTED, fontSize: 14, lineHeight: 21 }, error: { color: "#8c3f33", fontSize: 13, lineHeight: 19, paddingVertical: 4 },
-  ritual: { flex: 1, paddingTop: 42, paddingHorizontal: 20 }, wordSpace: { flexGrow: 1, justifyContent: "center", paddingVertical: 44 }, ritualBottom: { alignItems: "center", gap: 8, paddingBottom: 24 }, hint: { color: MUTED, textAlign: "center", fontSize: 14, lineHeight: 21 }, quiet: { flex: 1, alignItems: "center", justifyContent: "center" }, fern: { position: "absolute", width: 180, height: 270, opacity: 0.55, top: "12%", right: -15 },
-  archive: { flex: 1, paddingHorizontal: 28, paddingTop: 18 }, list: { paddingVertical: 30, gap: 0 }, empty: { color: MUTED, fontSize: 18, marginTop: 100, textAlign: "center" }, listRow: { flexDirection: "row", alignItems: "center", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#c9c4b8", paddingVertical: 19 }, listText: { flex: 1 }, date: { color: ACCENT, fontSize: 12, letterSpacing: 1, textTransform: "uppercase" }, excerpt: { color: INK, fontSize: 19, lineHeight: 27, marginTop: 8 }, select: { fontSize: 27, color: ACCENT, paddingLeft: 18 }, archiveFooter: { minHeight: 76, alignItems: "center", justifyContent: "center" }, recordScroll: { paddingTop: 48, paddingBottom: 50 }, fullText: { color: INK, fontSize: 23, lineHeight: 36, marginTop: 22 }, comparison: { marginBottom: 45, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: "#c9c4b8", paddingBottom: 35 },
+  notice: { color: MUTED, fontSize: 14, lineHeight: 21 }, error: { color: brand.error, fontSize: 13, lineHeight: 19, paddingVertical: 4 },
+  ritual: { flex: 1, paddingTop: 42, paddingHorizontal: 20 }, wordSpace: { flexGrow: 1, justifyContent: "center", paddingVertical: 44 }, ritualBottom: { alignItems: "center", gap: 8, paddingBottom: 24 }, hint: { color: MUTED, textAlign: "center", fontFamily: HAND, fontSize: 19, lineHeight: 24 }, quiet: { flex: 1, alignItems: "center", justifyContent: "center" },
+  archive: { flex: 1, paddingHorizontal: 28, paddingTop: 18 }, list: { paddingVertical: 30, gap: 0 }, empty: { color: MUTED, fontFamily: HAND, fontSize: 22, marginTop: 100, textAlign: "center" }, listRow: { flexDirection: "row", alignItems: "center", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: brand.line, paddingVertical: 19 }, listText: { flex: 1 }, date: { color: ACCENT, fontSize: 12, letterSpacing: 1, textTransform: "uppercase" }, excerpt: { color: INK, fontFamily: HAND, fontSize: 22, lineHeight: 28, marginTop: 8 }, select: { fontSize: 27, color: brand.periwinkle, paddingLeft: 18 }, archiveFooter: { minHeight: 76, alignItems: "center", justifyContent: "center" }, recordScroll: { paddingTop: 48, paddingBottom: 50 }, fullText: { color: INK, fontFamily: HAND, fontSize: 26, lineHeight: 36, marginTop: 22 }, comparison: { marginBottom: 45, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: brand.line, paddingBottom: 35 },
 });

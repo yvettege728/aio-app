@@ -5,7 +5,8 @@ import { windMotionTokens } from "./tokens";
 import { tokenizeWindWords } from "./words";
 
 type Phase = "idle" | "loosening" | "ready" | "wind";
-const INK = "#302c27";
+import { brand } from "../brand/brand";
+const INK = brand.ink;
 
 function Letter({ value, index, phase, reducedMotion }: { value: string; index: number; phase: Phase; reducedMotion: boolean }) {
   const progress = useSharedValue(0);
@@ -59,5 +60,5 @@ export function WindWords({ text, phase, reducedMotion, onComplete }: {
 const styles = StyleSheet.create({
   lines: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", paddingHorizontal: 12 },
   word: { flexDirection: "row", marginRight: 8, marginBottom: 4 },
-  letter: { color: INK, fontSize: 21, lineHeight: 32, fontWeight: "400" },
+  letter: { color: INK, fontFamily: "Gaegu_400Regular", fontSize: 25, lineHeight: 34, fontWeight: "400" },
 });

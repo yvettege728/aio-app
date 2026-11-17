@@ -66,5 +66,16 @@ if (m==='splash') { // 430x932 points, rendered at 3x
   <div style="position:absolute;left:0;right:0;bottom:${48+40}px;text-align:center;font-size:18px;color:#6E5440">thanks for aio-ing today</div>
   </div>`; }
 if (m==='fav') root.innerHTML = `<div class="s" style="width:${S}px;height:${S}px;border-radius:${S*0.225}px;background:#E6EFFA">${bloomBg(S)}${iconMark(S,0.8)}</div>`;
+
+const LIGHT = { rim:'#6C7FD8', rimA:0.9, core:'#C9D3F6', caustic:'#EE8FA6' };
+if (m==='markl') { const w=S; root.innerHTML = `<div style="padding:${Math.round(w*0.04)}px ${Math.round(w*0.02)}px">${liquid(w, LIGHT)}</div>`; }
+if (m==='ground') { const W=430,H=932;
+  root.innerHTML = `<div class="s" style="width:${W}px;height:${H}px;background:#EEF3FB">
+  <div class="b" style="left:-180px;top:-120px;width:760px;height:320px;background:#F6DDE6;opacity:.85;filter:blur(60px)"></div>
+  <div class="b" style="left:-160px;top:330px;width:720px;height:200px;background:#9FB0EA;opacity:.28;filter:blur(70px)"></div>
+  <div class="b" style="left:160px;top:640px;width:460px;height:220px;background:#9FD3EE;opacity:.35;filter:blur(60px)"></div>
+  <div class="b" style="left:-200px;top:790px;width:520px;height:240px;background:#CFE8C9;opacity:.6;filter:blur(60px)"></div>
+  ${grain(W,H,0.25,'g')}</div>`; }
+
 document.fonts.ready.then(()=>{document.title='ready'});
 </script></body></html>
