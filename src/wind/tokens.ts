@@ -5,4 +5,6 @@ export const windMotionTokens = {
   letterDelayMs: 12,
   completeBaseMs: 1300,
   voiceBreathMs: 1600,
+  rustleGapMs: 420,
+  hintSwayMs: 2400,
 } as const;

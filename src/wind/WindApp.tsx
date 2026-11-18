@@ -10,6 +10,8 @@ import { addWindEntry, deleteAllWindEntries, deleteWindEntry, readWindEntries, t
 import { releaseIntent } from "./release";
 import { VoiceButton } from "./VoiceButton";
 import { pressOutAction, voiceHint, type VoiceMode } from "./voicePress";
+import { ShakeHint } from "./ShakeHint";
+import { useWindSound } from "./useWindSound";
 import { brand, ground, markLiquid, MARK_RATIO } from "../brand/brand";
 
 const INK = brand.ink;
@@ -38,6 +40,10 @@ export function WindApp() {
   const releasePending = useRef(false);
   const voice = useVoiceInput({ value: draft, selection, locale, onChangeText: setDraft, onSelectionChange: setSelection });
   const [voiceMode, setVoiceMode] = useState<VoiceMode>(null);
+  const [motionAvailable, setMotionAvailable] = useState(true);
+  const { prepare: prepareSound, rustle, gust } = useWindSound();
+  const canShake = useRef(false);
+  canShake.current = screen === "motion" || (screen === "write" && !!draft.trim() && !keyboardVisible && (voice.status === "idle" || voice.status === "error") && voiceMode === null);
   const pressedAt = useRef(0);
   const stopWhenReady = useRef(false);
   const voicePressIn = () => {
@@ -103,17 +109,32 @@ export function WindApp() {
   }, [draft]);
 
   useEffect(() => {
-    if (screen !== "motion") return;
-    let active = true;
-    void Accelerometer.isAvailableAsync().then((available) => {
-      if (active && !available) setError("Motion is unavailable. You can release without shaking.");
-    }).catch(() => { if (active) setError("Motion is unavailable. You can release without shaking."); });
+    void Accelerometer.isAvailableAsync().then(setMotionAvailable).catch(() => setMotionAvailable(false));
+  }, []);
+  // Listen on the writing screen too: shaking there is how release begins.
+  useEffect(() => {
+    if (screen !== "write" && screen !== "motion") return;
     Accelerometer.setUpdateInterval(55);
     const subscription = Accelerometer.addListener((sample) => {
+      if (!canShake.current) return;
       setMotion((current) => advanceWindMotion(current, { ...sample, t: Date.now() }));
     });
-    return () => { active = false; subscription.remove(); };
+    return () => subscription.remove();
   }, [screen]);
+  // First shake on the writing screen: words start falling right there in the ritual.
+  useEffect(() => {
+    if (screen !== "write" || motion.shed <= 0) return;
+    Keyboard.dismiss();
+    setError("");
+    prepareSound();
+    setScreen("motion");
+  }, [motion.shed, screen, prepareSound]);
+  useEffect(() => {
+    if (motion.shed > 0 && motion.phase !== "wind") rustle();
+  }, [motion.shed, motion.phase, rustle]);
+  useEffect(() => {
+    if (screen === "wind") gust();
+  }, [screen, gust]);
   useEffect(() => {
     if (screen === "motion" && motion.phase === "wind") void saveAndWind();
   }, [motion.phase, saveAndWind, screen]);
@@ -128,6 +149,7 @@ export function WindApp() {
     Keyboard.dismiss();
     setError("");
     setMotion(initialWindMotion);
+    prepareSound();
     setScreen("motion");
   };
   const begin = () => {
@@ -186,7 +208,7 @@ export function WindApp() {
           </View>
           {voice.status === "error" && <Text style={styles.notice}>{voice.error}</Text>}
           {!!error && <Text accessibilityLiveRegion="polite" style={styles.error}>{error}</Text>}
-          <Pressable accessibilityRole="button" onPress={begin} style={styles.primary}><Text style={styles.primaryText}>{releasePending.current ? "finishing your words…" : "shake to release"}</Text><Text style={styles.arrow}>↗</Text></Pressable>
+          <ShakeHint ready={!!draft.trim()} finishing={releasePending.current} reducedMotion={reducedMotion} showFallback={screenReader || !motionAvailable} onRelease={begin} />
           <View style={styles.bottomMeta}><Text style={styles.disclosure}>Your full words stay on this iPhone.</Text><Pressable accessibilityRole="button" accessibilityLabel="Open saved words" onPress={() => { void refresh(); setScreen("archive"); }}><Text style={styles.archiveLink}>past words</Text></Pressable></View>
         </View>
       </View>}
@@ -195,6 +217,7 @@ export function WindApp() {
         <Text style={styles.eyebrow}>{screen === "wind" ? "THE WIND" : motion.shed > 0 ? "LITTLE BY LITTLE" : "SHAKE TO LOOSEN"}</Text>
         <ScrollView contentContainerStyle={styles.wordSpace}><WindWords text={draft} phase={screen === "wind" ? "wind" : motion.phase} shed={motion.shed} reducedMotion={reducedMotion} onComplete={() => setScreen("quiet")} /></ScrollView>
         {screen === "motion" && <View style={styles.ritualBottom}>
+          {!motionAvailable && <Text style={styles.notice}>Motion is unavailable. You can release without shaking.</Text>}
           <Text style={styles.hint}>{motion.shed > 0 ? "Keep shaking, or rest. What has fallen stays gone." : "Shake. A little falls away each time."}</Text>
           <Pressable accessibilityRole="button" disabled={saving} onPress={() => void saveAndWind()}><Text style={styles.smallLink}>{saving ? "saving…" : error ? "retry saving" : "release without shaking"}</Text></Pressable>
           <Pressable accessibilityRole="button" onPress={() => { setMotion(initialWindMotion); setScreen("write"); }}><Text style={styles.mutedLink}>back to writing</Text></Pressable>
@@ -236,7 +259,6 @@ const styles = StyleSheet.create({
   eyebrow: { color: ACCENT, fontSize: 11, letterSpacing: 2.2, fontWeight: "600", textAlign: "center" },
   editor: { color: INK, fontFamily: HAND, fontSize: 25, lineHeight: 34, minHeight: 190, maxHeight: 300, marginTop: 22, padding: 0 }, editorKeyboard: { minHeight: 120, maxHeight: 180, marginTop: 12 },
   bottom: { gap: 12 }, voiceRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingBottom: 4 }, voiceSide: { width: 64, alignItems: "flex-end" }, langChip: { borderWidth: 1, borderColor: brand.line, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, backgroundColor: "rgba(251,252,255,0.55)" }, languageLink: { color: ACCENT, fontSize: 12, letterSpacing: 1.2 },
-  primary: { flexDirection: "row", borderWidth: 1.5, borderColor: brand.periwinkle, borderRadius: 999, backgroundColor: "rgba(251,252,255,0.6)", minHeight: 62, paddingHorizontal: 26, justifyContent: "space-between", alignItems: "center", shadowColor: brand.periwinkle, shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 6 } }, primaryText: { color: brand.periwinkle, fontFamily: HAND_BOLD, fontSize: 27 }, arrow: { color: brand.periwinkle, fontSize: 22 },
   bottomMeta: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 16, paddingTop: 3 },
   disclosure: { flex: 1, color: MUTED, fontSize: 11, lineHeight: 16 }, archiveLink: { color: MUTED, fontSize: 12, textDecorationLine: "underline" },
   notice: { color: MUTED, fontSize: 14, lineHeight: 21 }, error: { color: brand.error, fontSize: 13, lineHeight: 19, paddingVertical: 4 },
