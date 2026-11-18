@@ -8,6 +8,8 @@ import { advanceWindMotion, initialWindMotion, type WindMotion } from "./motion"
 import { WindWords } from "./WindWords";
 import { addWindEntry, deleteAllWindEntries, deleteWindEntry, readWindEntries, type WindEntry } from "./store";
 import { releaseIntent } from "./release";
+import { VoiceButton } from "./VoiceButton";
+import { pressOutAction, voiceHint, type VoiceMode } from "./voicePress";
 import { brand, ground, markLiquid, MARK_RATIO } from "../brand/brand";
 
 const INK = brand.ink;
@@ -35,6 +37,32 @@ export function WindApp() {
   const savePending = useRef(false);
   const releasePending = useRef(false);
   const voice = useVoiceInput({ value: draft, selection, locale, onChangeText: setDraft, onSelectionChange: setSelection });
+  const [voiceMode, setVoiceMode] = useState<VoiceMode>(null);
+  const pressedAt = useRef(0);
+  const stopWhenReady = useRef(false);
+  const voicePressIn = () => {
+    pressedAt.current = Date.now();
+    if (voiceMode === "latched") return;
+    if (voice.status !== "idle" && voice.status !== "error") return;
+    Keyboard.dismiss();
+    setError("");
+    stopWhenReady.current = false;
+    setVoiceMode("hold");
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    void voice.start();
+  };
+  const voicePressOut = () => {
+    const action = pressOutAction(voiceMode, Date.now() - pressedAt.current);
+    if (action === "latch") { setVoiceMode("latched"); return; }
+    if (action !== "stop") return;
+    setVoiceMode(null);
+    if (voice.status === "listening") { voice.stop(); void Haptics.selectionAsync(); }
+    else if (voice.status === "requestingPermission") stopWhenReady.current = true;
+  };
+  useEffect(() => {
+    if (voice.status === "listening" && stopWhenReady.current) { stopWhenReady.current = false; voice.stop(); }
+    if (voice.status === "idle" || voice.status === "error") { stopWhenReady.current = false; setVoiceMode(null); }
+  }, [voice.status]);
 
   const refresh = useCallback(async () => {
     try { setEntries(await readWindEntries()); setError(""); }
@@ -152,8 +180,9 @@ export function WindApp() {
         </View>
         <View style={styles.bottom}>
           <View style={styles.voiceRow}>
-            <Pressable accessibilityRole="button" onPress={() => { if (voice.status === "listening") voice.stop(); else void voice.start(); }}><Text style={styles.voiceLink}>{voice.status === "listening" ? "●  listening · tap to stop" : "◉  speak"}</Text></Pressable>
-            <Pressable accessibilityRole="button" onPress={() => setLocale(locale === "en" ? "zh" : "en")}><Text style={styles.languageLink}>{locale === "en" ? "EN" : "中文"}</Text></Pressable>
+            <View style={styles.voiceSide} />
+            <VoiceButton listening={voice.status === "listening"} busy={voice.status === "requestingPermission" || voice.status === "finishing"} reducedMotion={reducedMotion} hint={voiceHint(voice.status, voiceMode, locale)} onPressIn={voicePressIn} onPressOut={voicePressOut} />
+            <View style={styles.voiceSide}><Pressable accessibilityRole="button" accessibilityLabel={locale === "en" ? "Speech language English. Switch to Mandarin" : "Speech language Mandarin. Switch to English"} disabled={voice.status !== "idle" && voice.status !== "error"} onPress={() => setLocale(locale === "en" ? "zh" : "en")} style={styles.langChip}><Text style={styles.languageLink}>{locale === "en" ? "EN" : "中文"}</Text></Pressable></View>
           </View>
           {voice.status === "error" && <Text style={styles.notice}>{voice.error}</Text>}
           {!!error && <Text accessibilityLiveRegion="polite" style={styles.error}>{error}</Text>}
@@ -206,7 +235,7 @@ const styles = StyleSheet.create({
   editorLabel: { color: ACCENT, fontSize: 11, letterSpacing: 2.2, fontWeight: "600" },
   eyebrow: { color: ACCENT, fontSize: 11, letterSpacing: 2.2, fontWeight: "600", textAlign: "center" },
   editor: { color: INK, fontFamily: HAND, fontSize: 25, lineHeight: 34, minHeight: 190, maxHeight: 300, marginTop: 22, padding: 0 }, editorKeyboard: { minHeight: 120, maxHeight: 180, marginTop: 12 },
-  bottom: { gap: 12 }, voiceRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingBottom: 9 }, voiceLink: { color: INK, fontSize: 14, letterSpacing: 0.5, paddingVertical: 8 }, languageLink: { color: MUTED, fontSize: 12, letterSpacing: 1.2, paddingVertical: 8 },
+  bottom: { gap: 12 }, voiceRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingBottom: 4 }, voiceSide: { width: 64, alignItems: "flex-end" }, langChip: { borderWidth: 1, borderColor: brand.line, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, backgroundColor: "rgba(251,252,255,0.55)" }, languageLink: { color: ACCENT, fontSize: 12, letterSpacing: 1.2 },
   primary: { flexDirection: "row", borderWidth: 1.5, borderColor: brand.periwinkle, borderRadius: 999, backgroundColor: "rgba(251,252,255,0.6)", minHeight: 62, paddingHorizontal: 26, justifyContent: "space-between", alignItems: "center", shadowColor: brand.periwinkle, shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 6 } }, primaryText: { color: brand.periwinkle, fontFamily: HAND_BOLD, fontSize: 27 }, arrow: { color: brand.periwinkle, fontSize: 22 },
   bottomMeta: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 16, paddingTop: 3 },
   disclosure: { flex: 1, color: MUTED, fontSize: 11, lineHeight: 16 }, archiveLink: { color: MUTED, fontSize: 12, textDecorationLine: "underline" },
